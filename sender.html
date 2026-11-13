@@ -36,9 +36,26 @@ async function getCounty(lat, lon){
   }catch(e){}
 }
 
+let wx = '', temp = null, wxT = 0;
+function wxText(c){
+  if (c===0) return 'Clear'; if (c===1) return 'Mostly clear'; if (c===2) return 'Partly cloudy'; if (c===3) return 'Overcast';
+  if (c===45||c===48) return 'Fog'; if (c>=51&&c<=57) return 'Drizzle'; if (c===66||c===67) return 'Freezing rain';
+  if (c>=61&&c<=65) return 'Rain'; if (c>=71&&c<=77) return 'Snow'; if (c>=80&&c<=82) return 'Rain showers';
+  if (c===85||c===86) return 'Snow showers'; if (c>=95) return 'Thunderstorm'; return '';
+}
+async function getWx(lat, lon){
+  wxT = Date.now();
+  try{
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat.toFixed(2) + '&longitude=' + lon.toFixed(2) + '&current=temperature_2m,weather_code&temperature_unit=fahrenheit');
+    const c = (await r.json()).current;
+    temp = c.temperature_2m; wx = wxText(c.weather_code);
+  }catch(e){}
+}
+
 function onPos(p){
   pos = p.coords;
   const now = Date.now();
+  if (now - wxT > 600000) getWx(pos.latitude, pos.longitude);
   if (lookup.lat === null || (km(lookup.lat, lookup.lon, pos.latitude, pos.longitude) > 1.5 && now - lookup.t > 30000)){
     lookup = {lat: pos.latitude, lon: pos.longitude, t: now};
     getCounty(pos.latitude, pos.longitude);
@@ -52,6 +69,9 @@ function send(){
     hdg: pos.heading,
     alt: pos.altitude == null ? null : pos.altitude * 3.28084,
     county: county,
+    temp: temp,
+    wx: wx,
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
     t: Date.now()
   };
   frame.contentWindow.postMessage({sendData:{gps:gps}, type:'pcs'}, '*');
