@@ -1,0 +1,75 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cam Sender</title>
+<style>
+html,body{margin:0;height:100%;background:#000;color:#fff;font:14px system-ui,sans-serif}
+#start{position:fixed;inset:0;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;text-align:center;padding:16px}
+button{font-size:20px;padding:14px 28px;border-radius:10px;border:0;background:#2e7d32;color:#fff}
+iframe{width:100%;height:calc(100% - 28px);border:0;display:none}
+#st{position:fixed;bottom:0;left:0;right:0;height:28px;line-height:28px;padding:0 8px;background:#111;font-size:12px;display:none;white-space:nowrap;overflow:hidden}
+</style></head>
+<body>
+<div id="start">
+  <div>Stream ID: <b id="sid"></b></div>
+  <button id="go">Start camera + GPS</button>
+  <div style="opacity:.6;font-size:12px">Allow location and camera when asked. Keep screen on and plugged in.</div>
+</div>
+<iframe id="f" allow="camera;microphone;autoplay;display-capture"></iframe>
+<div id="st">Waiting for GPS...</div>
+<script>
+// Set your own hard-to-guess ID here, or open this page with ?id=yourid
+const ID = new URLSearchParams(location.search).get('id') || '';
+document.getElementById('sid').textContent = ID || 'MISSING - add ?id=yourID to the address';
+const frame = document.getElementById('f'), st = document.getElementById('st');
+let pos = null, county = '', lookup = {lat:null, lon:null, t:0};
+
+function km(a,b,c,d){const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r*Math.cos(a*r);return Math.hypot(x,y)*6371;}
+
+async function getCounty(lat, lon){
+  try{
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&lat=${lat}&lon=${lon}`);
+    const j = await r.json(), a = j.address || {};
+    const state = (a['ISO3166-2-lvl4']||'').split('-')[1] || a.state || '';
+    const place = a.county || a.city || a.town || '';
+    county = [place, state].filter(Boolean).join(', ');
+  }catch(e){}
+}
+
+function onPos(p){
+  pos = p.coords;
+  const now = Date.now();
+  if (lookup.lat === null || (km(lookup.lat, lookup.lon, pos.latitude, pos.longitude) > 1.5 && now - lookup.t > 30000)){
+    lookup = {lat: pos.latitude, lon: pos.longitude, t: now};
+    getCounty(pos.latitude, pos.longitude);
+  }
+}
+
+function send(){
+  if (!pos) return;
+  const gps = {
+    mph: pos.speed == null ? null : pos.speed * 2.23694,
+    hdg: pos.heading,
+    alt: pos.altitude == null ? null : pos.altitude * 3.28084,
+    county: county,
+    t: Date.now()
+  };
+  frame.contentWindow.postMessage({sendData:{gps:gps}, type:'pcs'}, '*');
+  st.textContent = 'GPS OK | ' + (gps.mph==null?'--':Math.round(gps.mph)) + ' mph | ' + (county||'locating...');
+}
+
+async function wake(){ try{ await navigator.wakeLock.request('screen'); }catch(e){} }
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) wake(); });
+
+document.getElementById('go').onclick = () => {
+  if (!ID) return;
+  document.getElementById('start').style.display = 'none';
+  frame.style.display = 'block'; st.style.display = 'block';
+  frame.src = 'https://vdo.ninja/?push=' + encodeURIComponent(ID) + '&wc&as&broadcast&q=1&np';
+  wake();
+  navigator.geolocation.watchPosition(onPos, e => { st.textContent = 'GPS error: ' + e.message; },
+    {enableHighAccuracy:true, maximumAge:1000, timeout:20000});
+  setInterval(send, 1000);
+};
+</script>
+</body></html>
