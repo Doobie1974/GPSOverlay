@@ -85,7 +85,7 @@ document.getElementById('go').onclick = () => {
   if (!ID) return;
   document.getElementById('start').style.display = 'none';
   frame.style.display = 'block'; st.style.display = 'block';
-  frame.src = 'https://vdo.ninja/?push=' + encodeURIComponent(ID) + '&wc&as&broadcast&q=1&np';
+  frame.src = 'https://vdo.ninja/?push=' + encodeURIComponent(ID) + '&wc&as&q=1&np';
   wake();
   navigator.geolocation.watchPosition(onPos, e => { st.textContent = 'GPS error: ' + e.message; },
     {enableHighAccuracy:true, maximumAge:1000, timeout:20000});
