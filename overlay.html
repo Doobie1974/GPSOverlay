@@ -1,0 +1,87 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>OBS GPS Overlay</title>
+<style>
+html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:system-ui,sans-serif}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+#hud{position:absolute;left:2vw;bottom:3vh;display:flex;align-items:center;gap:2.5vw;padding:1.5vw 2.5vw;
+  background:rgba(0,0,0,.65);border-radius:1.5vw;color:#fff;pointer-events:none;text-shadow:0 0 8px #000}
+#spd{font-size:13vw;font-weight:800;line-height:.9;min-width:17vw;text-align:right}
+.u{font-size:3.6vw;font-weight:600;opacity:.85;margin-left:.6vw}
+#info{display:flex;flex-direction:column;gap:.6vw}
+#dir{font-size:5.5vw;font-weight:700;line-height:1}
+#alt{font-size:4vw;font-weight:600;line-height:1}
+#cty{font-size:3.6vw;font-weight:600;line-height:1.1;opacity:.95}
+#clk{position:absolute;right:2vw;top:3vh;padding:1.2vw 2vw;background:rgba(0,0,0,.65);border-radius:1.5vw;
+  color:#fff;text-align:right;pointer-events:none;text-shadow:0 0 8px #000;display:flex;flex-direction:column;gap:.5vw}
+#time{font-size:6vw;font-weight:800;line-height:1}
+#date{font-size:3vw;font-weight:600;line-height:1}
+#wx{font-size:3.4vw;font-weight:600;line-height:1}
+</style></head>
+<body>
+<!-- Stream ID comes from the address: overlay.html?id=yourID -->
+<iframe id="v" allow="autoplay"></iframe>
+<div id="hud">
+  <div><span id="spd">--</span><span class="u">MPH</span></div>
+  <div id="info">
+    <div id="dir">--</div>
+    <div id="alt">-- ft</div>
+    <div id="cty">Waiting for GPS...</div>
+  </div>
+</div>
+<div id="clk">
+  <div id="time">--:--</div>
+  <div id="date"></div>
+  <div id="wx"></div>
+</div>
+<script>
+const frame = document.getElementById('v');
+const ID = new URLSearchParams(location.search).get('id') || '';
+if (ID) frame.src = 'https://vdo.ninja/?view=' + encodeURIComponent(ID) + '&clean&autostart';
+const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+let g = null, lastHdg = null;
+
+addEventListener('message', e => {
+  if (e.source !== frame.contentWindow) return;
+  const d = e.data && e.data.dataReceived;
+  if (d && d.gps) { g = d.gps; g.rx = Date.now(); render(); }
+});
+
+function render(){
+  const spd = document.getElementById('spd'), dir = document.getElementById('dir'),
+        alt = document.getElementById('alt'), cty = document.getElementById('cty');
+  if (!g || Date.now() - g.rx > 6000){
+    spd.textContent = '--'; dir.textContent = '--'; alt.textContent = '-- ft';
+    cty.textContent = g ? 'GPS signal lost' : (ID ? 'Waiting for GPS...' : 'Add ?id=yourID to the address');
+    return;
+  }
+  const mph = g.mph == null ? 0 : (g.mph < 1 ? 0 : Math.round(g.mph));
+  spd.textContent = mph;
+  // heading is only trustworthy while moving; otherwise keep the last good one
+  if (g.hdg != null && !isNaN(g.hdg) && mph >= 2) lastHdg = g.hdg;
+  dir.textContent = lastHdg == null ? '--' : dirs[Math.round(lastHdg / 45) % 8] + ' ' + Math.round(lastHdg) + '\u00b0';
+  alt.textContent = g.alt == null ? '-- ft' : Math.round(g.alt).toLocaleString() + ' ft';
+  cty.textContent = g.county || 'Locating...';
+}
+setInterval(render, 1000);
+
+// Clock uses the phone's time zone (sent with the GPS data) so it stays right if you travel
+function tick(){
+  const tz = g && g.tz ? g.tz : undefined;
+  const now = new Date();
+  let t, d;
+  try{
+    t = now.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', timeZone:tz});
+    d = now.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric', timeZone:tz});
+  }catch(e){
+    t = now.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+    d = now.toLocaleDateString();
+  }
+  document.getElementById('time').textContent = t;
+  document.getElementById('date').textContent = d;
+  document.getElementById('wx').textContent = (g && g.temp != null)
+    ? Math.round(g.temp) + '\u00b0F' + (g.wx ? ' \u00b7 ' + g.wx : '') : '';
+}
+setInterval(tick, 1000); tick();
+</script>
+</body></html>
