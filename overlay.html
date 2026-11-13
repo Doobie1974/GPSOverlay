@@ -4,24 +4,45 @@
 <style>
 html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:system-ui,sans-serif}
 iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-#hud{position:absolute;left:2vw;bottom:3vh;display:flex;align-items:center;gap:2.5vw;padding:1.5vw 2.5vw;
-  background:rgba(0,0,0,.65);border-radius:1.5vw;color:#fff;pointer-events:none;text-shadow:0 0 8px #000}
-#spd{font-size:13vw;font-weight:800;line-height:.9;min-width:17vw;text-align:right}
-.u{font-size:3.6vw;font-weight:600;opacity:.85;margin-left:.6vw}
-#info{display:flex;flex-direction:column;gap:.6vw}
+.box{position:absolute;background:rgba(0,0,0,.65);color:#fff;pointer-events:none;text-shadow:0 0 8px #000;
+  border-radius:1.5vw;transition:padding .8s ease}
+
+/* ---- GPS box (bottom-left) ---- */
+#hud{left:2vw;bottom:3vh;display:flex;align-items:center;padding:1.5vw 2.5vw}
+#spd{font-size:13vw;font-weight:800;line-height:.9;min-width:17vw;text-align:right;
+  transition:font-size .8s ease,min-width .8s ease}
+.u{font-size:3.6vw;font-weight:600;opacity:.85;margin-left:.6vw;transition:font-size .8s ease}
+#info{display:flex;flex-direction:column;gap:.6vw;margin-left:2.5vw;max-width:50vw;max-height:30vw;
+  overflow:hidden;white-space:nowrap;
+  transition:max-width .8s ease,max-height .8s ease,margin-left .8s ease,opacity .6s ease}
 #dir{font-size:5.5vw;font-weight:700;line-height:1}
 #alt{font-size:4vw;font-weight:600;line-height:1}
 #cty{font-size:3.6vw;font-weight:600;line-height:1.1;opacity:.95}
-#clk{position:absolute;right:2vw;top:3vh;padding:1.2vw 2vw;background:rgba(0,0,0,.65);border-radius:1.5vw;
-  color:#fff;text-align:right;pointer-events:none;text-shadow:0 0 8px #000;display:flex;flex-direction:column;gap:.5vw}
-#time{font-size:6vw;font-weight:800;line-height:1}
-#date{font-size:3vw;font-weight:600;line-height:1}
-#wx{font-size:3.4vw;font-weight:600;line-height:1}
+
+/* ---- Time / weather box (top-right) ---- */
+#clk{right:2vw;top:3vh;padding:1.2vw 2vw;text-align:right}
+#time{font-size:6vw;font-weight:800;line-height:1;transition:font-size .8s ease}
+#date{font-size:3vw;font-weight:600;line-height:1;margin-top:.5vw;max-height:5vw;overflow:hidden;
+  transition:max-height .8s ease,margin-top .8s ease,opacity .6s ease}
+#wx{font-size:3.4vw;font-weight:600;line-height:1;margin-top:.5vw;white-space:nowrap;transition:font-size .8s ease}
+#desc{display:inline-block;vertical-align:bottom;max-width:30vw;overflow:hidden;
+  transition:max-width .8s ease,opacity .6s ease}
+
+/* ---- Compact mode: speed only, and time + temperature only ---- */
+.compact #hud{padding:1vw 1.8vw}
+.compact #spd{font-size:9vw;min-width:11.5vw}
+.compact .u{font-size:2.6vw}
+.compact #info{max-width:0;max-height:0;margin-left:0;opacity:0}
+.compact #clk{padding:1vw 1.6vw}
+.compact #time{font-size:4.6vw}
+.compact #date{max-height:0;margin-top:0;opacity:0}
+.compact #wx{font-size:3.6vw}
+.compact #desc{max-width:0;opacity:0}
 </style></head>
 <body>
 <!-- Stream ID comes from the address: overlay.html?id=yourID -->
 <iframe id="v" allow="autoplay"></iframe>
-<div id="hud">
+<div id="hud" class="box">
   <div><span id="spd">--</span><span class="u">MPH</span></div>
   <div id="info">
     <div id="dir">--</div>
@@ -29,15 +50,25 @@ iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
     <div id="cty">Waiting for GPS...</div>
   </div>
 </div>
-<div id="clk">
+<div id="clk" class="box">
   <div id="time">--:--</div>
   <div id="date"></div>
-  <div id="wx"></div>
+  <div id="wx"><span id="tmp"></span><span id="desc"></span></div>
 </div>
 <script>
 const frame = document.getElementById('v');
-const ID = new URLSearchParams(location.search).get('id') || '';
+const Q = new URLSearchParams(location.search);
+const ID = Q.get('id') || '';
 if (ID) frame.src = 'https://vdo.ninja/?view=' + encodeURIComponent(ID) + '&clean&autostart';
+
+// Seconds in full-detail mode and in compact mode; change with &full=5&small=30 in the address
+const FULL = (+Q.get('full') || 5) * 1000, SMALL = (+Q.get('small') || 30) * 1000;
+function cycle(compact){
+  document.body.classList.toggle('compact', compact);
+  setTimeout(() => cycle(!compact), compact ? SMALL : FULL);
+}
+cycle(false);
+
 const dirs = ['N','NE','E','SE','S','SW','W','NW'];
 let g = null, lastHdg = null;
 
@@ -79,8 +110,9 @@ function tick(){
   }
   document.getElementById('time').textContent = t;
   document.getElementById('date').textContent = d;
-  document.getElementById('wx').textContent = (g && g.temp != null)
-    ? Math.round(g.temp) + '\u00b0F' + (g.wx ? ' \u00b7 ' + g.wx : '') : '';
+  const has = g && g.temp != null;
+  document.getElementById('tmp').textContent = has ? Math.round(g.temp) + '\u00b0F' : '';
+  document.getElementById('desc').textContent = has && g.wx ? ' \u00b7 ' + g.wx : '';
 }
 setInterval(tick, 1000); tick();
 </script>
