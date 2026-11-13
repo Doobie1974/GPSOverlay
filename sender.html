@@ -63,11 +63,11 @@ function onPos(p){
 }
 
 function send(){
-  if (!pos) return;
+  const p = pos || {};
   const gps = {
-    mph: pos.speed == null ? null : pos.speed * 2.23694,
-    hdg: pos.heading,
-    alt: pos.altitude == null ? null : pos.altitude * 3.28084,
+    mph: p.speed == null ? null : p.speed * 2.23694,
+    hdg: p.heading,
+    alt: p.altitude == null ? null : p.altitude * 3.28084,
     county: county,
     temp: temp,
     wx: wx,
@@ -75,7 +75,7 @@ function send(){
     t: Date.now()
   };
   frame.contentWindow.postMessage({sendData:{gps:gps}, type:'pcs'}, '*');
-  st.textContent = 'GPS OK | ' + (gps.mph==null?'--':Math.round(gps.mph)) + ' mph | ' + (county||'locating...');
+  st.textContent = (pos ? 'GPS OK | ' : 'No GPS fix | ') + (gps.mph==null?'--':Math.round(gps.mph)) + ' mph | ' + (county||'locating...');
 }
 
 async function wake(){ try{ await navigator.wakeLock.request('screen'); }catch(e){} }

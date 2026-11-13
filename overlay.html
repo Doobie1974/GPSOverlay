@@ -3,7 +3,8 @@
 <title>OBS GPS Overlay</title>
 <style>
 html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden;font-family:system-ui,sans-serif}
-iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0;transition:opacity .6s ease}
+.idle iframe{opacity:0}
 .box{position:absolute;background:rgba(0,0,0,.65);color:#fff;pointer-events:none;text-shadow:0 0 8px #000;
   border-radius:1.5vw;transition:padding .8s ease,opacity .6s ease}
 .idle .box{opacity:0}
@@ -60,7 +61,7 @@ iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 const frame = document.getElementById('v');
 const Q = new URLSearchParams(location.search);
 const ID = Q.get('id') || '';
-if (ID) frame.src = 'https://vdo.ninja/?view=' + encodeURIComponent(ID) + '&clean&autostart';
+if (ID) frame.src = 'https://vdo.ninja/?view=' + encodeURIComponent(ID) + '&clean&autostart&transparent';
 
 // Seconds in full-detail mode and in compact mode; change with &full=5&small=30 in the address
 const FULL = (+Q.get('full') || 5) * 1000, SMALL = (+Q.get('small') || 30) * 1000;
