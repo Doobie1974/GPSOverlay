@@ -2,10 +2,11 @@
 <html><head><meta charset="utf-8">
 <title>OBS GPS Overlay</title>
 <style>
-html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:system-ui,sans-serif}
+html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden;font-family:system-ui,sans-serif}
 iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .box{position:absolute;background:rgba(0,0,0,.65);color:#fff;pointer-events:none;text-shadow:0 0 8px #000;
-  border-radius:1.5vw;transition:padding .8s ease}
+  border-radius:1.5vw;transition:padding .8s ease,opacity .6s ease}
+.idle .box{opacity:0}
 
 /* ---- GPS box (bottom-left) ---- */
 #hud{left:2vw;bottom:3vh;display:flex;align-items:center;padding:1.5vw 2.5vw}
@@ -39,7 +40,7 @@ iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .compact #wx{font-size:3.6vw}
 .compact #desc{max-width:0;opacity:0}
 </style></head>
-<body>
+<body class="idle">
 <!-- Stream ID comes from the address: overlay.html?id=yourID -->
 <iframe id="v" allow="autoplay"></iframe>
 <div id="hud" class="box">
@@ -81,7 +82,9 @@ addEventListener('message', e => {
 function render(){
   const spd = document.getElementById('spd'), dir = document.getElementById('dir'),
         alt = document.getElementById('alt'), cty = document.getElementById('cty');
-  if (!g || Date.now() - g.rx > 6000){
+  const live = g && Date.now() - g.rx <= 6000;
+  document.body.classList.toggle('idle', !live);
+  if (!live){
     spd.textContent = '--'; dir.textContent = '--'; alt.textContent = '-- ft';
     cty.textContent = g ? 'GPS signal lost' : (ID ? 'Waiting for GPS...' : 'Add ?id=yourID to the address');
     return;
